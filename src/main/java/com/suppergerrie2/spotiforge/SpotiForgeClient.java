@@ -1,6 +1,7 @@
 package com.suppergerrie2.spotiforge;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import com.suppergerrie2.spotiforge.ui.LyricsGuiOverlay;
 import com.suppergerrie2.spotiforge.ui.SpotifyScreen;
 import mine.block.spotify.SpotifyHandler;
 import mine.block.spotify.SpotifyUtils;
@@ -9,9 +10,11 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.sounds.SoundSource;
 import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.client.event.RegisterGuiOverlaysEvent;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
 import net.minecraftforge.client.event.ScreenEvent;
 import net.minecraftforge.client.event.sound.PlaySoundEvent;
+import net.minecraftforge.client.gui.overlay.VanillaGuiOverlay;
 import net.minecraftforge.common.util.Lazy;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -51,6 +54,11 @@ public class SpotiForgeClient {
         @SubscribeEvent
         public static void registerBindings(RegisterKeyMappingsEvent event) {
             event.register(OPEN_SPOTIFY_MENU.get());
+        }
+
+        @SubscribeEvent
+        public static void registerGUIOverlay(RegisterGuiOverlaysEvent event) {
+            event.registerAbove(VanillaGuiOverlay.SUBTITLES.id(), "lyrics", new LyricsGuiOverlay());
         }
     }
 

@@ -53,7 +53,7 @@ public class SpotifyScreen extends Screen {
     protected void init() {
         super.init();
         this.addRenderableWidget(new SpotifyTextButtonWidget(2, height - 22, 46, 20, Component.keybind("⟵ Back"), (btn) -> Objects.requireNonNull(minecraft).setScreen(parent)));
-        this.addRenderableWidget(new SpotifyPlaylistItemWidget(width / 2, (height / 3)));
+        this.addRenderableWidget(new SpotifyPlaylistItemWidget(0, 0, width, height - 25));
 
         var currentlyPlaying = SpotifyUtils.NOW_PLAYING;
 
@@ -187,7 +187,6 @@ public class SpotifyScreen extends Screen {
             context.drawString(textRenderer, text, (width / 2) - (widthe / 2), (height / 2) - (widthe / 2), 0xFFFF0000, false);
             return;
         }
-
 
         renderProgressBar(context);
 

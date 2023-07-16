@@ -1,5 +1,7 @@
 package mine.block.spotify;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.logging.LogUtils;
 import com.suppergerrie2.spotiforge.Config;
@@ -9,16 +11,20 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundSource;
+import org.apache.http.client.utils.URIBuilder;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
+import se.michaelthelin.spotify.model_objects.IPlaylistItem;
 import se.michaelthelin.spotify.model_objects.miscellaneous.CurrentlyPlaying;
 import se.michaelthelin.spotify.model_objects.specification.Episode;
 import se.michaelthelin.spotify.model_objects.specification.Track;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.InetSocketAddress;
-import java.net.Socket;
-import java.net.URL;
+import java.net.*;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -26,11 +32,23 @@ public class SpotifyUtils {
 
     public static boolean MC_LOADED = false;
     public static CurrentlyPlaying NOW_PLAYING = null;
+    public static long LAST_NOW_UPDATE;
+    public static Lyrics NOW_LYRICS = null;
     public static NativeImage NOW_ART = null;
     public static ResourceLocation NOW_ID = null;
     public static HashMap<ResourceLocation, NativeImage> TEXTURE = new HashMap<>();
 
     private static final Logger LOGGER = LogUtils.getLogger();
+
+    private static final URI LYRICS_API;
+
+    static {
+        try {
+            LYRICS_API = new URI("https://spotify-lyric-api.herokuapp.com");
+        } catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     public static InputStream loadHTMLFile(String id) throws IOException {
         var path = "/web/" + id + ".html";
@@ -79,8 +97,10 @@ public class SpotifyUtils {
         return result;
     }
 
-    public static void run(CurrentlyPlaying currentlyPlaying) {
+    public static void run(@NotNull CurrentlyPlaying currentlyPlaying, Lyrics lyrics) {
         if(!MC_LOADED) return;
+        LAST_NOW_UPDATE = System.currentTimeMillis();
+        NOW_LYRICS = lyrics;
         if (NOW_PLAYING == null || !NOW_PLAYING.getItem().getId().equals(currentlyPlaying.getItem().getId())) {
             NOW_PLAYING = currentlyPlaying;
 
@@ -92,7 +112,7 @@ public class SpotifyUtils {
 
             var item = currentlyPlaying.getItem();
 
-            ResourceLocation texture = new ResourceLocation("spotify_logo", currentlyPlaying.getItem().getId().toLowerCase());
+            ResourceLocation texture = new ResourceLocation("spotify", currentlyPlaying.getItem().getId().toLowerCase());
 
             if (!TEXTURE.containsKey(texture)) {
                 if (item instanceof Track track) {
@@ -132,11 +152,55 @@ public class SpotifyUtils {
                     Minecraft.getInstance().getSoundManager().stop(null, SoundSource.MUSIC);
                 }
             });
+        } else {
+            NOW_PLAYING = currentlyPlaying;
         }
 
 
         if (Minecraft.getInstance().screen instanceof SpotifyScreen spotifyScreen) {
             spotifyScreen.progress = (float) currentlyPlaying.getProgress_ms() / (float) currentlyPlaying.getItem().getDurationMs();
         }
+    }
+
+    private static final HttpClient httpClient = HttpClient.newHttpClient();
+    private static final Gson gson = new GsonBuilder().create();
+
+    public static Lyrics gatherLyrics(IPlaylistItem playlistItem) {
+        String id = playlistItem.getId();
+        LOGGER.info("Gathering lyrics for: {}", id);
+
+        URI uri;
+        try {
+            uri = new URIBuilder(LYRICS_API).addParameter("trackid", id).addParameter("format", "id3").build();
+        } catch (URISyntaxException e) {
+            e.printStackTrace();
+            return null;
+        }
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(uri)
+                .GET()
+                .build();
+
+        HttpResponse<String> result;
+        try {
+            result = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        } catch (IOException | InterruptedException e) {
+            LOGGER.warn("Failed to send lyrics request: {}.", e.getMessage());
+            return null;
+        }
+
+        // No lyrics for this song!
+        if(result.statusCode() == 404) {
+//            NOW_LYRICS = null;
+            return null;
+        }
+
+        if(result.statusCode() != 200) {
+            LOGGER.warn("Failed to retrieve lyrics: {}\n{}", result.statusCode(), result.body());
+            return null;
+        }
+
+        return gson.fromJson(result.body(), Lyrics.class);
     }
 }

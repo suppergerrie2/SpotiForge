@@ -16,14 +16,19 @@ public class Config
             .comment("Whether to auto mute minecraft's music when spotify is playing.")
             .define("autoMuteIngameMusic", true);
 
+    private static final ForgeConfigSpec.BooleanValue DISPLAY_LYRICS_IN_HUD = BUILDER
+            .comment("Whether to auto display the song's lyrics in the HUD under the chat.")
+            .define("displayLyricsInHud", true);
+
     static final ForgeConfigSpec SPEC = BUILDER.build();
 
     public static boolean autoMuteIngameMusic;
-
+    public static boolean displayLyricsInHud;
 
     @SubscribeEvent
     static void onLoad(final ModConfigEvent event)
     {
         autoMuteIngameMusic = AUTO_MUTE_INGAME_MUSIC.get();
+        displayLyricsInHud = DISPLAY_LYRICS_IN_HUD.get();
     }
 }

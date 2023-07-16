@@ -86,19 +86,22 @@ public class SpotifyHandler {
 
     @FunctionalInterface
     public interface SongChangeEvent {
-        void run(CurrentlyPlaying cp);
+        void run(CurrentlyPlaying cp, Lyrics lyrics);
     }
 
 
     public static class PollingThread implements Runnable {
         public static CurrentlyPlaying CURRENTLY_PLAYING = null;
+        private static Lyrics lyrics;
         @Override
         public void run() {
+            LOGGER.info("Starting poll thread.");
             while (true) {
                 try {
                     CURRENTLY_PLAYING = SPOTIFY_API.getUsersCurrentlyPlayingTrack().build().execute();
                     if (CURRENTLY_PLAYING == null) return;
-                    Minecraft.getInstance().execute(() -> songChangeEvent.forEach(event -> event.run(CURRENTLY_PLAYING)));
+                    if(SpotifyUtils.NOW_PLAYING == null || !SpotifyUtils.NOW_PLAYING.getItem().getId().equals(CURRENTLY_PLAYING.getItem().getId())) lyrics = SpotifyUtils.gatherLyrics(CURRENTLY_PLAYING.getItem());
+                    Minecraft.getInstance().execute(() -> songChangeEvent.forEach(event -> event.run(CURRENTLY_PLAYING, lyrics)));
                 } catch (IOException | SpotifyWebApiException | ParseException e) {
                     LOGGER.warn("Failed to poll: " + e);
                 }
