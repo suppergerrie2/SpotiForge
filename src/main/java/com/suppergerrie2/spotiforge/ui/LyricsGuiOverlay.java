@@ -17,7 +17,12 @@ public class LyricsGuiOverlay implements IGuiOverlay {
 
     @Override
     public void render(ForgeGui gui, GuiGraphics guiGraphics, float partialTick, int screenWidth, int screenHeight) {
-        if(SpotifyUtils.NOW_LYRICS == null || !Config.displayLyricsInHud) return;
+        final int fadeStartOutTime = 5*1000;
+        final int fadeOutDuration = 2*1000;
+        final boolean isPaused = !SpotifyUtils.NOW_PLAYING.getIs_playing();
+        final long pauseDuration = isPaused ? System.currentTimeMillis() - SpotifyUtils.NOW_PLAYING.getTimestamp() : -1;
+
+        if(SpotifyUtils.NOW_LYRICS == null || !Config.displayLyricsInHud || pauseDuration > fadeStartOutTime + fadeOutDuration) return;
         int midX = screenWidth / 2;
         int hotbarWidth = 182;
         int height = gui.leftHeight;
@@ -54,13 +59,14 @@ public class LyricsGuiOverlay implements IGuiOverlay {
         int x = 0;
         int y = screenHeight - height;
         int lineWidth = (int) (width * scaleInv);
+        guiGraphics.setColor(1, 1, 1, isPaused && pauseDuration >= fadeStartOutTime ? 1 - (pauseDuration - fadeStartOutTime) / (float) fadeOutDuration : 1);
         for (int i = start; i < end; i++) {
             int distance = Math.abs(currentLyricsPos - i);
             Component line = Component.literal(SpotifyUtils.NOW_LYRICS.lines[i].words);
             var split = textRenderer.split(line, lineWidth);
             if (y > scaleInv * (screenHeight - split.size() * textRenderer.lineHeight - textRenderer.lineHeight)) break;
             for (FormattedCharSequence splitLine : split) {
-                guiGraphics.fill(0, (int) (y*scaleInv), lineWidth, (int) ((y + textRenderer.lineHeight * scale) * scaleInv), gui.getMinecraft().options.getBackgroundColor(0.8F));
+                guiGraphics.fill(0, (int) (y*scaleInv), lineWidth, (int) ((y + textRenderer.lineHeight * scale) * scaleInv) - 1, gui.getMinecraft().options.getBackgroundColor(0.8F));
                 guiGraphics.drawString(textRenderer, splitLine, x*scaleInv, y*scaleInv, Math.max((int) (0xFF / (0.5 * distance + 1)), 0x10) * 0x010101, false);
                 y += textRenderer.lineHeight * scale;
             }
