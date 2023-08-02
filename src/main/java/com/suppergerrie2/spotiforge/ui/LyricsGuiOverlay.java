@@ -71,6 +71,7 @@ public class LyricsGuiOverlay implements IGuiOverlay {
                 y += textRenderer.lineHeight * scale;
             }
         }
+        guiGraphics.setColor(1, 1, 1, 1);
         guiGraphics.pose().popPose();
     }
 }
