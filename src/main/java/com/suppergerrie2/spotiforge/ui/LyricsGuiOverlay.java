@@ -19,7 +19,7 @@ public class LyricsGuiOverlay implements IGuiOverlay {
     public void render(ForgeGui gui, GuiGraphics guiGraphics, float partialTick, int screenWidth, int screenHeight) {
         final int fadeStartOutTime = 5*1000;
         final int fadeOutDuration = 2*1000;
-        final boolean isPaused = !SpotifyUtils.NOW_PLAYING.getIs_playing();
+        final boolean isPaused = SpotifyUtils.NOW_PLAYING != null && !SpotifyUtils.NOW_PLAYING.getIs_playing();
         final long pauseDuration = isPaused ? System.currentTimeMillis() - SpotifyUtils.NOW_PLAYING.getTimestamp() : -1;
 
         if(SpotifyUtils.NOW_LYRICS == null || !Config.displayLyricsInHud || pauseDuration > fadeStartOutTime + fadeOutDuration) return;
@@ -68,7 +68,7 @@ public class LyricsGuiOverlay implements IGuiOverlay {
             for (FormattedCharSequence splitLine : split) {
                 guiGraphics.fill(0, (int) (y*scaleInv), lineWidth, (int) ((y + textRenderer.lineHeight * scale) * scaleInv) - 1, gui.getMinecraft().options.getBackgroundColor(0.8F));
                 guiGraphics.drawString(textRenderer, splitLine, x*scaleInv, y*scaleInv, Math.max((int) (0xFF / (0.5 * distance + 1)), 0x10) * 0x010101, false);
-                y += textRenderer.lineHeight * scale;
+                y += (int) (textRenderer.lineHeight * scale);
             }
         }
         guiGraphics.setColor(1, 1, 1, 1);
