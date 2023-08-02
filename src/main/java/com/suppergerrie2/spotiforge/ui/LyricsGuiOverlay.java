@@ -59,6 +59,16 @@ public class LyricsGuiOverlay implements IGuiOverlay {
         int x = 0;
         int y = screenHeight - height;
         int lineWidth = (int) (width * scaleInv);
+        int maxWidth = 0;
+
+        for(int i = start; i < end; i++) {
+            Component line = Component.literal(SpotifyUtils.NOW_LYRICS.lines[i].words);
+            var split = textRenderer.split(line, lineWidth);
+            for (FormattedCharSequence l : split) {
+                maxWidth = Math.max(textRenderer.width(l), maxWidth);
+            }
+        }
+
         guiGraphics.setColor(1, 1, 1, isPaused && pauseDuration >= fadeStartOutTime ? 1 - (pauseDuration - fadeStartOutTime) / (float) fadeOutDuration : 1);
         for (int i = start; i < end; i++) {
             int distance = Math.abs(currentLyricsPos - i);
@@ -66,7 +76,7 @@ public class LyricsGuiOverlay implements IGuiOverlay {
             var split = textRenderer.split(line, lineWidth);
             if (y > scaleInv * (screenHeight - split.size() * textRenderer.lineHeight - textRenderer.lineHeight)) break;
             for (FormattedCharSequence splitLine : split) {
-                guiGraphics.fill(0, (int) (y*scaleInv), lineWidth, (int) ((y + textRenderer.lineHeight * scale) * scaleInv) - 1, gui.getMinecraft().options.getBackgroundColor(0.8F));
+                guiGraphics.fill(0, (int) (y*scaleInv), maxWidth, (int) ((y + textRenderer.lineHeight * scale) * scaleInv) - 1, gui.getMinecraft().options.getBackgroundColor(0.8F));
                 guiGraphics.drawString(textRenderer, splitLine, x*scaleInv, y*scaleInv, Math.max((int) (0xFF / (0.5 * distance + 1)), 0x10) * 0x010101, false);
                 y += (int) (textRenderer.lineHeight * scale);
             }
