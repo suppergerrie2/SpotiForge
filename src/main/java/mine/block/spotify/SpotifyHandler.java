@@ -11,6 +11,7 @@ import org.apache.hc.core5.http.ParseException;
 import org.slf4j.Logger;
 import se.michaelthelin.spotify.SpotifyApi;
 import se.michaelthelin.spotify.exceptions.SpotifyWebApiException;
+import se.michaelthelin.spotify.exceptions.detailed.UnauthorizedException;
 import se.michaelthelin.spotify.model_objects.miscellaneous.CurrentlyPlaying;
 
 import java.io.IOException;
@@ -21,6 +22,27 @@ public class SpotifyHandler {
     public static SpotifyApi SPOTIFY_API;
     public static HashSet<SongChangeEvent> songChangeEvent = new HashSet<>();
     private static final Logger LOGGER = LogUtils.getLogger();
+
+    private static boolean refreshAccessToken() {
+        try {
+            var creds = SPOTIFY_API.authorizationCodeRefresh().build().execute();
+
+            SPOTIFY_API.setAccessToken(creds.getAccessToken());
+
+            if(creds.getRefreshToken() != null) {
+                SPOTIFY_API.setRefreshToken(creds.getRefreshToken());
+                SpotiForge.SPOTIFY_CONFIG.put("refresh-token", creds.getRefreshToken());
+            }
+
+            SpotiForge.SPOTIFY_CONFIG.put("token", creds.getAccessToken());
+            LOGGER.info("Refreshed Credentials.");
+        } catch (IOException | SpotifyWebApiException | ParseException e) {
+            LOGGER.error("Failed to refresh access token. ", e);
+            return false;
+        }
+
+        return true;
+    }
 
     public static void setup(boolean reset) {
         if(reset || SpotiForge.SPOTIFY_CONFIG.empty) {
@@ -59,22 +81,7 @@ public class SpotifyHandler {
                     .setAccessToken(SpotiForge.SPOTIFY_CONFIG.getProperty("token"))
                     .setRefreshToken(SpotiForge.SPOTIFY_CONFIG.getProperty("refresh-token"))
                     .build();
-            try {
-                var creds = SPOTIFY_API.authorizationCodeRefresh().build().execute();
-
-                SPOTIFY_API.setAccessToken(creds.getAccessToken());
-
-                if(creds.getRefreshToken() != null) {
-                    SPOTIFY_API.setRefreshToken(creds.getRefreshToken());
-                    SpotiForge.SPOTIFY_CONFIG.put("refresh-token", creds.getRefreshToken());
-                }
-
-                SpotiForge.SPOTIFY_CONFIG.put("token", creds.getAccessToken());
-                LOGGER.info("Refreshed Credentials.");
-            } catch (IOException | SpotifyWebApiException | ParseException e) {
-                LOGGER.error("Failed to setup spotify. ", e);
-                System.exit(1);
-            }
+            if(!refreshAccessToken()) System.exit(1);
         }
 
         try {
@@ -93,23 +100,32 @@ public class SpotifyHandler {
     public static class PollingThread implements Runnable {
         public static CurrentlyPlaying CURRENTLY_PLAYING = null;
         private static Lyrics lyrics;
+        int refreshAttempts = 0;
         @Override
         public void run() {
             LOGGER.info("Starting poll thread.");
-            while (true) {
-                try {
-                    CURRENTLY_PLAYING = SPOTIFY_API.getUsersCurrentlyPlayingTrack().build().execute();
-                    if (CURRENTLY_PLAYING == null) return;
-                    if(SpotifyUtils.NOW_PLAYING == null || !SpotifyUtils.NOW_PLAYING.getItem().getId().equals(CURRENTLY_PLAYING.getItem().getId())) lyrics = SpotifyUtils.gatherLyrics(CURRENTLY_PLAYING.getItem());
-                    Minecraft.getInstance().execute(() -> songChangeEvent.forEach(event -> event.run(CURRENTLY_PLAYING, lyrics)));
-                } catch (IOException | SpotifyWebApiException | ParseException e) {
-                    LOGGER.warn("Failed to poll: " + e);
-                }
+            while (refreshAttempts < 10) {
                 try {
                     Thread.sleep(5000);
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
+
+                try {
+                    CURRENTLY_PLAYING = SPOTIFY_API.getUsersCurrentlyPlayingTrack().build().execute();
+                    if (CURRENTLY_PLAYING == null) return;
+                    if(SpotifyUtils.NOW_PLAYING == null || !SpotifyUtils.NOW_PLAYING.getItem().getId().equals(CURRENTLY_PLAYING.getItem().getId())) lyrics = SpotifyUtils.gatherLyrics(CURRENTLY_PLAYING.getItem());
+                    Minecraft.getInstance().execute(() -> songChangeEvent.forEach(event -> event.run(CURRENTLY_PLAYING, lyrics)));
+                } catch (UnauthorizedException e) {
+                    if(refreshAccessToken()) refreshAttempts = 0;
+                    else refreshAttempts++;
+                } catch (IOException | SpotifyWebApiException | ParseException e) {
+                    LOGGER.warn("Failed to poll: " + e);
+                }
+            }
+
+            if(refreshAttempts >= 10) {
+                LOGGER.warn("Failed to refresh access token, shutting down spotify connection!");
             }
         }
     }
