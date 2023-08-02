@@ -113,8 +113,10 @@ public class SpotifyHandler {
 
                 try {
                     CURRENTLY_PLAYING = SPOTIFY_API.getUsersCurrentlyPlayingTrack().build().execute();
-                    if (CURRENTLY_PLAYING == null) return;
+                    LOGGER.trace("Refreshed song: {}", CURRENTLY_PLAYING == null ? "null" : CURRENTLY_PLAYING.getItem().getName());
+                    if (CURRENTLY_PLAYING == null) continue;
                     if(SpotifyUtils.NOW_PLAYING == null || !SpotifyUtils.NOW_PLAYING.getItem().getId().equals(CURRENTLY_PLAYING.getItem().getId())) lyrics = SpotifyUtils.gatherLyrics(CURRENTLY_PLAYING.getItem());
+                    LOGGER.trace("Submitting song to client: {}", CURRENTLY_PLAYING == null ? "null" : CURRENTLY_PLAYING.getItem().getName());
                     Minecraft.getInstance().execute(() -> songChangeEvent.forEach(event -> event.run(CURRENTLY_PLAYING, lyrics)));
                 } catch (UnauthorizedException e) {
                     if(refreshAccessToken()) refreshAttempts = 0;

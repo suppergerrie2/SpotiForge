@@ -98,8 +98,10 @@ public class SpotifyUtils {
     }
 
     public static void run(@NotNull CurrentlyPlaying currentlyPlaying, Lyrics lyrics) {
+        LOGGER.trace("Running song: {}", currentlyPlaying.getItem().getName());
         if(!MC_LOADED) return;
         LAST_NOW_UPDATE = System.currentTimeMillis();
+        LOGGER.trace("Last updated: {}", LAST_NOW_UPDATE);
         NOW_LYRICS = lyrics;
         if (NOW_PLAYING == null || !NOW_PLAYING.getItem().getId().equals(currentlyPlaying.getItem().getId())) {
             NOW_PLAYING = currentlyPlaying;
